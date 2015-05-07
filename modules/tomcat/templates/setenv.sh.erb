@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#
+# This is file per the Tomcat standard for setting
+# optional environment variables.  This file actually
+# just sources in /etc/default/choice-environment if
+# it exists.  The choice-environment file is constructed
+# in the AWS user data as the instance is launched
+#
+#
+# @see http://tomcat.apache.org/tomcat-7.0-doc/RUNNING.txt
+#
+
+if [ -f /etc/default/choice-environment ]
+then
+  . /etc/default/choice-environment
+fi
+
+CATALINA_OPTS="$CATALINA_OPTS -javaagent:<%= scope.lookupvar('jmxtrans_agent_jar_target') %>=<%= scope.lookupvar('jmxtrans_agent_config_target') %>"

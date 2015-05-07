@@ -1,0 +1,165 @@
+#!/bin/bash
+#
+# kibana <summary>
+#
+# chkconfig:   2345 99 30
+# description: Starts and stops the Kibana web service on this server
+#
+
+### BEGIN INIT INFO
+# Provides: Kibana
+# Required-Start: $network $named
+# Required-Stop: $network $named
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: This service manages the kibana daemon
+# Description: Kibana provides a website that visualizes log data stored in elasticsearch.
+### END INIT INFO
+
+# Env Vars used for this init.d script
+KIBANA_EXEC="/kibana/kibana-<%= kibana_version %>-linux-x64/bin/kibana"
+PID_DIR="/var/run"
+PID_FILE="$PID_DIR/kibana.pid"
+LOG_DIR="var/log/kibana"
+LOG_FILE="$LOG_DIR/kibana.log"
+
+USAGE="Usage: $0 {start|stop|restart|status} [--force]"
+FORCE_OP=false
+
+pid_file_exists() {
+    [ -f "$PID_FILE" ]
+}
+
+get_pid() {
+    echo "$(cat "$PID_FILE")"
+}
+
+is_running() {
+    PID=$(get_pid)
+    ! [ -z "$(ps aux | awk '{print $2}' | grep "^$PID$")" ]
+}
+
+start_it() {
+    mkdir -p "$PID_DIR"
+    mkdir -p "$LOG_DIR"
+
+    # Wait 15 seconds for Elasticsearch to finish starting
+    sleep 15
+
+    echo "Starting Kibana..."
+    $KIBANA_EXEC 1>"$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "Kibana started with pid $!"
+}
+
+stop_process() {
+    PID=$(get_pid)
+    echo "Killing process $PID..."
+    kill $PID
+}
+
+remove_pid_file() {
+    echo "Removing pid file..."
+    rm -f "$PID_FILE"
+}
+
+start_app() {
+    if pid_file_exists
+    then
+        if is_running
+        then
+            PID=$(get_pid)
+            echo "Kibana is already running with pid $PID"
+            exit 1
+        else
+            echo "Kibana is stopped, but pid file exists"
+            if [ $FORCE_OP = true ]
+            then
+                echo "Forcing start anyways"
+                remove_pid_file
+                start_it
+            fi
+        fi
+    else
+        start_it
+    fi
+}
+
+stop_app() {
+    if pid_file_exists
+    then
+        if is_running
+        then
+            echo "Stopping Kibana..."
+            stop_process
+            remove_pid_file
+            echo "Kibana stopped"
+        else
+            echo "Kiban already stopped, but pid file exists"
+            if [ $FORCE_OP = true ]
+            then
+                echo "Forcing stop anyways ..."
+                remove_pid_file
+                echo "Kibana stopped"
+            else
+                exit 1
+            fi
+        fi
+    else
+        echo "Kibana already stopped, pid file does not exist"
+        exit 1
+    fi
+}
+
+status_app() {
+    if pid_file_exists
+    then
+        if is_running
+        then
+            PID=$(get_pid)
+            echo "Kibana is running with pid $PID"
+        else
+            echo "Kibana is stopped, but pid file exists"
+        fi
+    else
+        echo "Kibana is stopped"
+    fi
+}
+
+case "$2" in
+    --force)
+        FORCE_OP=true
+    ;;
+
+    "")
+    ;;
+
+    *)
+        echo $USAGE
+        exit 1
+    ;;
+esac
+
+case "$1" in
+    start)
+        start_app
+    ;;
+
+    stop)
+        stop_app
+    ;;
+
+    restart)
+        stop_app
+        start_app
+    ;;
+
+    status)
+        status_app
+    ;;
+
+    *)
+        echo $USAGE
+        exit 1
+    ;;
+esac

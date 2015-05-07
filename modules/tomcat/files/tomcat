@@ -1,0 +1,70 @@
+#!/bin/bash
+# This is the init script for starting up the
+#  Jakarta Tomcat server
+#
+# chkconfig: 345 91 10
+# description: Starts and stops the Tomcat daemon.
+#
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Get config.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "${NETWORKING}" = "no" ] && exit 0
+
+export JAVA_HOME=/usr/java/latest
+export TOMCAT=/usr/share/tomcat
+export TOMCAT_LOGS=/var/log/tomcat
+startup="daemon --user=tomcat $TOMCAT/bin/startup.sh > $TOMCAT_LOGS/startup.log 2>&1"
+shutdown=$TOMCAT/bin/shutdown.sh
+
+start(){
+   echo -n "Starting Tomcat service:"
+   cd $TOMCAT
+   $startup
+   echo "done"
+}
+
+stop(){
+   echo -n "Shutting down Tomcat: "
+   cd $TOMCAT
+   $shutdown
+   echo "done"
+}
+
+status(){
+    numproc=`ps -ef | grep catalina | grep -v "grep catalina" | wc -l`
+    if [ $numproc -gt 0 ]; then
+       echo "Tomcat is running..."
+    else
+       echo "Tomcat is stopped..."
+    fi
+}
+
+restart(){
+   stop
+   start
+}
+
+# See how we were called.
+case "$1" in
+start)
+   start
+   ;;
+stop)
+   stop
+   ;;
+status)
+   status
+   ;;
+restart)
+   restart
+   ;;
+*)
+   echo $"Usage: $0 {start|stop|status|restart}"
+   exit 1
+esac
+

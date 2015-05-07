@@ -1,0 +1,239 @@
+#!/bin/ksh 
+#
+# $Id: cisinstall 7214 2014-04-10 18:29:17Z rick_shepherd $ 
+#
+#       Copyright (C) 2009 Choice Hotels International, Inc.
+#                      All Rights Reserved
+#
+
+if [ $# -ne 2 -a $# -ne 3 ]
+then
+    echo "Usage: cisinstall md5sum tarfile"
+    echo "   or: cisinstall instance md5sum warfile"
+    exit 255
+fi
+
+#-------------------------------------------------------------------------
+# Set up Environment variables
+#-------------------------------------------------------------------------
+
+ARG_1=$1
+ARG_2=$2
+ARG_3=$3
+ARG_NUM=$#
+
+DIR=`dirname $0`
+
+# Need to source envvars but the DIR directory is a link so remove the
+# 'scripts' part so we are left wih the '/cis/cisdev' part.
+. ${DIR%%scripts}/envvars
+
+. $DIR/checkEnvironment CISAPP_HOME CIS_ENVIRONMENT CISAPP_DEPLOY
+
+INSTALLDIR=$CISAPP_HOME
+ENVIRONMENT=$CIS_ENVIRONMENT
+DEPLOYHOME=$CISAPP_DEPLOY
+
+# if ARG3 is null then this must be a tar file
+if [ -z $ARG_3 ]
+then
+   ARG_MD5SUM=$ARG_1
+   ARG_TARFILE=$ARG_2
+else
+   ARG_INSTANCE=$ARG_1
+   ARG_MD5SUM=$ARG_2
+   ARG_TARFILE=$ARG_3
+
+   eval echo \$CISWEB_HOME$ARG_INSTANCE | read INSTALLDIR
+   # position to correct instance environment
+   ENVIRONMENT=${CIS_ENVIRONMENT}_${ARG_INSTANCE}
+fi
+
+PROJECT=${ARG_TARFILE%%.*}
+TMP=${ARG_TARFILE%.*}
+EXTENSION=${TMP##*.}
+
+# Ensure the correct file extension
+if [ ! $EXTENSION = "tar" -a ! $EXTENSION = "war" ]
+then
+   echo "Unknown file extension $EXTENSION"
+   exit 255
+fi
+
+# Ensure that the correct number of parameters have been passed
+if [ $ARG_NUM -eq 2 -a $EXTENSION = "war" ]
+then
+   echo "Installation of a war file requires an instance and MD5 checksum"
+   exit 255
+fi
+
+if [ $ARG_NUM -eq 3 -a $EXTENSION = "tar" ]
+then
+   echo "Installation of a tar file requires just an MD5 checksum"
+   exit 255
+fi
+
+TARFILE=$DEPLOYHOME/$ARG_TARFILE
+DEPLOYDIR=$INSTALLDIR/$PROJECT.deploy
+
+#-------------------------------------------------------------------------
+# Check that the tar/war file exists 
+#-------------------------------------------------------------------------
+
+if [ ! -e $TARFILE ]
+then
+   echo "Unable to find $EXTENSION file $TARFILE"
+   exit 255
+fi
+
+echo "Using install file: $TARFILE"
+
+#-------------------------------------------------------------------------
+# Check that the checksums match
+#-------------------------------------------------------------------------
+
+typeset -l ARG_MD5SUM
+typeset -l RECEIVED
+
+RECEIVED=`/gnu/bin/md5sum $TARFILE | cut -d" " -f 1`
+
+if [ "x$ARG_MD5SUM" != "x$RECEIVED" ]
+then
+    echo "Checksum does NOT match"
+    echo "You typed the MD5 sum    : $ARG_MD5SUM" 
+    echo "System calculated MD5 sum: $RECEIVED" 
+    exit 255
+else
+    echo "Checksum matches"
+fi
+
+#-------------------------------------------------------------------------
+# Make the deployment directory
+#-------------------------------------------------------------------------
+
+echo "Making deployment directory"
+if [ -e $DEPLOYDIR ]
+then
+    echo "Deployment directory $DEPLOYDIR already exists"
+    exit 255
+fi
+
+mkdir $DEPLOYDIR
+cd $DEPLOYDIR
+
+#-------------------------------------------------------------------------
+# Unpack the install file
+#-------------------------------------------------------------------------
+
+echo "Unpacking the $EXTENSION file"
+cp $TARFILE $INSTALLDIR/$PROJECT.$EXTENSION
+if [ $EXTENSION = "tar" ]
+then
+   tar -xf $INSTALLDIR/$PROJECT.tar
+else
+   jar -xf $INSTALLDIR/$PROJECT.$EXTENSION
+fi
+
+#-------------------------------------------------------------------------
+# Move the correct config directory into place
+#-------------------------------------------------------------------------
+
+if [ -d config-$ENVIRONMENT ]; then
+    echo "Setting the config directory and removing others"
+    if [ $EXTENSION = "tar" ]
+    then
+        mv config-$ENVIRONMENT config
+    else
+        cp -r config-$ENVIRONMENT/* .
+    fi
+    rm -rf config-*
+fi
+
+#-------------------------------------------------------------------------
+# Set the file and directory permissions
+#-------------------------------------------------------------------------
+
+echo "Setting file and directory permissions"
+find . -type d -exec chmod 750 {} \;
+find . -type f -exec chmod 640 {} \;
+find . -type f -name "*.sh" -exec chmod 740 {} \;
+find . -type f -name "*.pl" -exec chmod 740 {} \;
+find . -name dbpwd.properties -exec chmod 600 {} \;
+
+#-------------------------------------------------------------------------
+# Archive the install file
+#-------------------------------------------------------------------------
+
+echo "Archiving the $EXTENSION file"
+
+mv $INSTALLDIR/$PROJECT.$EXTENSION $INSTALLDIR/$ARG_TARFILE
+
+#-------------------------------------------------------------------------
+# Move the files into the correct place
+#-------------------------------------------------------------------------
+
+echo "Installing the new files"
+rm -rf $INSTALLDIR/$PROJECT
+mv $DEPLOYDIR $INSTALLDIR/$PROJECT
+
+#-------------------------------------------------------------------------
+# Set the correct FACLs 
+#-------------------------------------------------------------------------
+
+cd $INSTALLDIR/$PROJECT
+if [ -e config/setperms.sh ]
+then
+    echo "Setting application access control list"
+    config/setperms.sh
+fi
+
+#-------------------------------------------------------------------------
+# If the tar file contains a crontab then set it.
+# Since there are "primary" and a "secondary" production
+# platforms, we need to install the correct crontab based
+# on the $CISPLATFORM variable.  Otherwise, just install
+# the crontab based upon the $CIS_ENVIRONMENT
+#-------------------------------------------------------------------------
+
+# Install the new crontab
+if [ "$PROJECT" = "cisenv" ]
+then
+	
+	CRONFILE=crontab.$CIS_ENVIRONMENT$CIS_PLATFORM
+	
+	if [ ! -e $CRONFILE ]
+	then 
+      CRONFILE=crontab.$CIS_ENVIRONMENT
+   fi
+	
+   echo "Installing crontab: $CRONFILE"
+	crontab $CRONFILE
+	crontab -l > $CISDIR/crontab
+fi
+
+#-------------------------------------------------------------------------
+# Finished the install
+#-------------------------------------------------------------------------
+
+if [ $EXTENSION = "tar" ]
+then
+   echo ""
+   echo "Installed CIS application $PROJECT version $VERSION"
+   echo ""
+fi
+
+#-------------------------------------------------------------------------
+# Restart the application
+#-------------------------------------------------------------------------
+
+if [ -d control ]
+then
+   echo "Restarting the application"
+   $DIR/cisappctl $PROJECT restart
+fi
+
+#-------------------------------------------------------------------------
+# Done
+#-------------------------------------------------------------------------
+
+exit 0;

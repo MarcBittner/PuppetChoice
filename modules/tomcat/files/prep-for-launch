@@ -1,0 +1,73 @@
+#!/bin/bash
+
+#
+# This script gets included on each appserver box and
+# is responsible for configuring the application fro
+# different environments.
+#
+# /etc/init.d/prep-for-launch
+#
+
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/default/choice-environment ]
+then
+  . /etc/default/choice-environment
+fi
+
+case "$1" in
+    start)
+
+        # update the hosts file, and start collectd
+        /usr/sbin/update-hosts.sh
+        service collectd restart
+
+        # based on environment, create app.properties symlink
+
+        TOMCAT_HOME="/usr/share/tomcat"
+
+        if [ -d /usr/share/tomcat/webapps ]
+        then
+
+          PROPERTIES_FILE=`find $TOMCAT_HOME/webapps/ -name app.properties`
+
+          if [ $PROPERTIES_FILE ]
+          then
+            # launch config must include an ENVIRONMENT variable
+            if [ -n "$ENVIRONMENT" ]
+            then
+
+              rm -rf $PROPERTIES_FILE
+              DIR=`dirname $PROPERTIES_FILE`
+
+              TARGET_FILE="app_$ENVIRONMENT.properties"
+              TARGET=$DIR/$TARGET_FILE
+
+              ln -s $TARGET $PROPERTIES_FILE
+
+              exit $?
+            else
+              echo "Missing ENVIRONMENT variable"
+              exit 1
+            fi
+          fi
+        else
+          echo "Could not find webapps folder in expected location"
+          exit 1
+        fi
+        ;;
+    stop)
+        # Nothing to stop
+        echo -n "Doing nothing.  Really. "
+        ;;
+    status)
+        status -p $pid_file prep-aws-hardware
+        exit $?
+        ;;
+    *)
+        echo "Usage: `basename $0` start|status"
+        exit 1
+esac
+
+exit 0
+

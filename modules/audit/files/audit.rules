@@ -1,0 +1,20 @@
+# /etc/audit/audit.rules
+#
+# This file contains the auditctl rules that are loaded
+# whenever the audit daemon is started via the initscripts.
+# The rules are simply the parameters that would be passed
+# to auditctl.
+
+# First rule - delete all
+-D
+
+# Increase the buffers to survive stress events.
+# Make this bigger for busy systems
+-b 1024
+
+# Feel free to add below this line. See auditctl man page
+
+# Added upon the request of InfoSec
+-a exit,always -F arch=b64 -S setrlimit -S setdomainname -S sched_setparam -S sched_setscheduler
+-a exit,always -F arch=b64 -S open -F success=0
+-a exit,always -F arch=b64 -S unlink -S rmdir

@@ -1,0 +1,61 @@
+#!/bin/bash
+#
+# /etc/init.d/prep-for-launch
+#
+#
+### BEGIN INIT INFO
+# Provides:          prep-for-launch
+# Required-Start:    cloud-final
+# Should-Start:
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Script to prepare instances for use in AWS
+# Description:       Script to prepare instances for use in AWS
+### END INIT INFO
+
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/default/choice-environment ]
+then
+  . /etc/default/choice-environment
+fi
+
+case "$1" in
+    start)
+        LOCAL_IPV4=$(curl -s "http://169.254.169.254/latest/meta-data/local-ipv4")
+
+        export LOCAL_IPV4
+
+        echo -n "Fixing /etc/hosts: "
+        echo $LOCAL_IPV4  $HOSTNAME >> /etc/hosts
+
+        echo -n "Mounting drives: "
+        umount /media/ephemeral0
+        yes | mdadm --create --verbose /dev/md0 --level=stripe --raid-devices=2 /dev/sdb /dev/sdc
+        mkfs.ext4 /dev/md0
+        mount -t ext4 /dev/md0 /mnt/RAID0 || exit 1
+        mkdir /mnt/RAID0/data
+        mkdir /mnt/RAID0/commitlog
+        chown -R cassandra:cassandra /mnt/RAID0/data
+        chown -R cassandra:cassandra /mnt/RAID0/commitlog
+
+        python /usr/sbin/aeneas.py 2>&1 | tee /tmp/aeneas.log &
+        sleep 30
+
+        ;;
+    stop)
+        # Nothing to stop
+        echo -n "Doing nothing.  Really. "
+        ;;
+    status)
+        status -p $pid_file prep-for-launch
+        exit $?
+        ;;
+    *)
+        echo "Usage: `basename $0` start|status"
+        exit 1
+esac
+
+exit 0

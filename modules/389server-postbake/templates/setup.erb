@@ -1,0 +1,25 @@
+[General]
+FullMachineName= <%= @hostname %>.aws.chotel.com
+SuiteSpotUserID= ds-user
+SuiteSpotGroup= ds-user
+AdminDomain= aws.chotel.com
+ConfigDirectoryAdminID= admin
+ConfigDirectoryAdminPwd= admin
+
+[slapd]
+SlapdConfigForMC= Yes
+UseExistingMC= 0
+ServerPort= 389
+ServerIdentifier= <%= @hostname %>
+Suffix= dc=aws, dc=chotel, dc=com
+RootDN= cn=Directory Manager
+RootDNPwd= password
+ds_bename=exampleDB
+AddSampleEntries= yes
+
+[admin]
+Port= 9830
+ServerIpAddress= <%= @ipaddress %>
+ServerAdminID= admin
+ServerAdminPwd= admin
+

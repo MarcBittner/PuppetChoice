@@ -1,0 +1,9 @@
+# /etc/sudoers.d/developer
+# 
+# Developer VM SUDO Commands
+#
+
+Cmnd_Alias SERVICES = /sbin/service tomcat* , /sbin/chkconfig tomcat* ,  /sbin/service httpd* , /sbin/chkconfig httpd*
+
+%developer        ALL=(root)       NOPASSWD: SERVICES
+

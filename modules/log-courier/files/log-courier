@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# /etc/init.d/log-courier
+#
+# Script to start log-courier as a service
+# 
+# chkconfig: 2345 99 01
+
+. /etc/rc.d/init.d/functions
+
+export LOG_COURER_OWNER=log-courier
+pid_file=/var/run/log-courier/log-courier.pid
+
+case "$1" in
+    start)
+        nohup /sbin/log-courier/log-courier-1.3/bin/log-courier -config=/etc/log-courier/log-courier.conf >/dev/null 2>&1 &
+        ;;
+    stop)
+        # log-courier shutdown
+        echo -n "Shutdown log-courier: "
+        su $LOG_COURIER_OWNER -c "kill `cat $pid_file`"
+        retval=$?
+        [ $retval -eq 0 ] && rm -f $lock_file
+        echo "OK"
+        ;;
+    status)
+        status -p $pid_file log-courier
+        exit $?
+        ;;
+    *)
+        echo "Usage: `basename $0` start|status"
+        exit 1
+esac
+
+exit 0
