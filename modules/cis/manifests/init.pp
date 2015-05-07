@@ -1,5 +1,19 @@
-class cis (/* $version = '2.1.2-2' */ $arg1, $arg2, $arg3) {
+class cis (
+            $arg1, 
+            $arg2, 
+            $arg3,
+          ) {
   
+       
+       Exec { path => [ "/bin/", "/sbin/" , "/usr/bin/", "/usr/sbin/", "/usr/local/bin/" ], 
+              logoutput => on_failure,  
+              }
+                    
+       include 'stdlib'
+       include 'git'
+       include 'wget'
+ 
+
 #  $nexus_artifact_url     = "http://nexus.chotel.com/nexus/service/local/repositories/infrastructure/content/org/apache/cassandra/${version}/cassandra-${version}.rpm"
   $user_name              = 'cassandra'
   $group_name             = 'cassandra'
@@ -8,19 +22,21 @@ class cis (/* $version = '2.1.2-2' */ $arg1, $arg2, $arg3) {
   $git_command            = "/usr/bin/git"
   $path_to_cwd            = '/tmp'
   $path_to_cisinstall     = "${path_to_cwd}/cisenv/src/main/resources/scripts/cisinstall"
-  
+    
+  /* 
   exec { $cis_repo:
     command => "${git_command} clone ${$cis_repo}",
     cwd     => $path_to_cwd,
   } ->
+  */
   
-#  file { $path_to_cisinstall:
-#    replace => true,
-#    source => "${path_to_cwd}",
-#    mode => "644",
-#    owner => "root",
-#    group => "root",
-#  } ->
+ file { $path_to_cisinstall:
+    replace => true,
+    source => "${path_to_cwd}",
+    mode => "644",
+    owner => "root",
+    group => "root",
+  } ->
  
   exec { "Exec cisinstall:":
              command => "$path_to_cisinstall ${arg1} ${arg2} ${arg3}",
