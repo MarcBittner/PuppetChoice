@@ -15,13 +15,13 @@ class cis (
  
 
 #  $nexus_artifact_url     = "http://nexus.chotel.com/nexus/service/local/repositories/infrastructure/content/org/apache/cassandra/${version}/cassandra-${version}.rpm"
-  $user_name              = 'cassandra'
-  $group_name             = 'cassandra'
-  $git_repo_url           = 'http://stash.chotel.com:8080/scm/cis'
-  $cis_repo               = "${git_repo_url}/cis.git"
-  $git_command            = "/usr/bin/git"
-  $path_to_cwd            = '/tmp'
-  $path_to_cisinstall     = "${path_to_cwd}/cisenv/src/main/resources/scripts/cisinstall"
+       $user_name              = 'cassandra'
+       $group_name             = 'cassandra'
+       $git_repo_url           = 'http://stash.chotel.com:8080/scm/cis'
+       $cis_repo               = "${git_repo_url}/cis.git"
+       $git_command            = "/usr/bin/git"
+       $path_to_cwd            = '/tmp'
+       $path_to_cisinstall     = "${path_to_cwd}/cisenv/src/main/resources/scripts/cisinstall"
     
   /* 
   exec { $cis_repo:
@@ -30,15 +30,26 @@ class cis (
   } ->
   */
   
- file { $path_to_cisinstall:
-    replace => true,
-    source => "${path_to_cwd}",
-    mode => "644",
-    owner => "root",
-    group => "root",
-  } ->
+       file { [ 
+           "${path_to_cwd}",
+           "${path_to_cwd}/cisenv/",
+           "${path_to_cwd}/cisenv/src/",
+           "${path_to_cwd}/cisenv/src/main/",
+           "${path_to_cwd}/cisenv/src/main/resources/",   
+           "${path_to_cwd}/cisenv/src/main/resources/scripts/"
+                ]:
+                  ensure => "directory",
+            } ->
+  
+        file { $path_to_cisinstall:
+           replace => true,
+           source => "puppet:///modules/cis/cisinstall",
+           mode => "755",
+           owner => "root",
+           group => "root",
+           } ->
  
-  exec { "Exec cisinstall:":
-             command => "$path_to_cisinstall ${arg1} ${arg2} ${arg3}",
-        }
+         exec { "Exec cisinstall:":
+                    command => "$path_to_cisinstall ${arg1} ${arg2} ${arg3}",
+                    }
 }
