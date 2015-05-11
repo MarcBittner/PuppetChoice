@@ -6,6 +6,10 @@
 #                      All Rights Reserved
 #
 
+echo "We did it" > /tmp/file.txt
+exit 0
+
+
 if [ $# -ne 2 -a $# -ne 3 ]
 then
     echo "Usage: cisinstall md5sum tarfile"
